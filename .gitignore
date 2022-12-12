@@ -1,7 +1,1 @@
-build/esp32.esp32.esp32/inkBuddyBLENEW.ino.bootloader.bin
-build/esp32.esp32.esp32/inkBuddyBLENEW.ino.partitions.bin
-build/esp32.esp32.esp32/inkBuddyBLENEW.ino.elf
-build/esp32.esp32.esp32/inkBuddyBLENEW.ino.map
-
-
-
+build/esp32.esp32.esp32/
