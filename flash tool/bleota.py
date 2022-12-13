@@ -16,7 +16,7 @@ arrayOfData = list(splitter(mainFile,size))
 
 
 async def main():
-    async with BleakClient("4C:EB:D6:43:67:B2") as client:
+    async with BleakClient("E81748A0-0237-7885-9A12-AD982257896D") as client:
         counter = 0
         for i in tqdm(arrayOfData):
             try:

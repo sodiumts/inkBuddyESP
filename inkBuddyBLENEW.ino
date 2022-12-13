@@ -4,32 +4,57 @@
 #include <BLE2902.h>
 #include "esp_ota_ops.h"
 
+//For firmware and hardware versions
 std::string FWVersion = "v0.0.1";
 std::string HWVersion = "v0.1";
+//For initializing the display requirements
+#define LILYGO_T5_V213
 
+#include <boards.h>
+#include <GxEPD.h>
+#include <GxDEPG0213BN/GxDEPG0213BN.h>  
+#include <GxIO/GxIO_SPI/GxIO_SPI.h>
+#include <GxIO/GxIO.h>
+
+GxIO_Class io(SPI,  EPD_CS, EPD_DC,  EPD_RSET);
+GxEPD_Class display(io, EPD_RSET, EPD_BUSY);
+
+
+//            for initializing BLE.        //
 BLEServer* pServer = NULL;
+//characteristic definitions
+
+//General service characteristics
 BLECharacteristic* pCharacteristic = NULL;
 BLECharacteristic* pCharacteristic1 = NULL;
+//OTA characteristics
 BLECharacteristic* pCharacteristicOTA = NULL;
+//Device info characteristics
 BLECharacteristic* pCharacteristicFW = NULL;
 BLECharacteristic* pCharacteristicHW = NULL;
+
+
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-uint32_t value = 0;
 bool updateFlag = false;
 esp_ota_handle_t otaHandler = 0;
 
-#define SERVICE_UUID_GENERIC    "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-#define CHARACTERISTIC_UUID0    "beb5483e-36e1-4688-b7f5-ea07361b26a8"
-#define CHARACTERISTIC_UUID1    "b6a5eeef-8f30-46dd-8689-3b874c0fda71"
 
-#define SERVICE_UUID_OTA "ddd633a2-1d8b-498f-af91-5406399e87fd"
-#define CHARACTERISTIC_UUID_RECEIVE "5b277b7f-f2e2-438c-9041-a7cda588269c"
+//UUIDs for services and characteristics
 
-#define SERVICE_UUID_DEVICE         "0000180a-0000-1000-8000-00805f9b34fb" // UART service UUID
+//General service uuids
+#define SERVICE_UUID_GENERIC        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define CHARACTERISTIC_UUID0        "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define CHARACTERISTIC_UUID1        "b6a5eeef-8f30-46dd-8689-3b874c0fda71"
+//OTA service uuids
+#define SERVICE_UUID_OTA            "0000FE59-0000-1000-8000-00805f9b34fb"
+#define CHARACTERISTIC_UUID_RECEIVE "8ec90003-f315-4f60-9fb8-838830daea50"
+//Device info service uuids
+#define SERVICE_UUID_DEVICE         "0000180a-0000-1000-8000-00805f9b34fb" 
 #define CHARACTERISTIC_UUID_FW      "00002a26-0000-1000-8000-00805f9b34fb"
 #define CHARACTERISTIC_UUID_HW      "00002a27-0000-1000-8000-00805f9b34fb"
 
+//Main callbacks for BLE server
 class MyServerCallBacks: public BLEServerCallbacks{
   void onConnect(BLEServer* pServer){
     deviceConnected = true;
@@ -39,22 +64,42 @@ class MyServerCallBacks: public BLEServerCallbacks{
   }
 };
 
+//Callbacks for general service characteristic
 class SecondCharacteristicCallbacks: public BLECharacteristicCallbacks{
   void onWrite(BLECharacteristic *pCharacteristic){
     Serial.println("Data received");
-    uint8_t* pData;
-    std::string value = pCharacteristic->getValue();
-    int len = value.length();
-    pData = pCharacteristic->getData();
-    for(int i=0;i<len;i++){
-      Serial.println(pData[i]);
+    uint8_t* pData = pCharacteristic->getData();
+    std::string pValue = pCharacteristic->getValue();
+    int len = pValue.length();
+    // Serial.println(len);
+    int xPos = pData[0];
+    int yPos = pData[1];
+    int width = pData[2];
+    int height = pData[3];
+    int textSize = 1;
+    // Serial.print(xPos); Serial.print(yPos); Serial.print("\n");
+
+    uint8_t mainData[len-1] = {};
+    // Serial.println(len-4);
+    for(int i=4;i<len;i++){
+      // Serial.println(pData[i]);
+      mainData[i-4] = pData[i];
     }
-    delay(5000);
+
+    // String str = (char*)mainData;
+    Serial.println((char*)mainData);
+    // display.setRotation(0);
+    // display.setCursor(xPos,yPos);
+    // display.setTextSize(textSize);
+    // display.println((char *) mainData);
+    // // int cursorX = display.getCursorX();
+    // display.updateWindow(0,0,GxEPD_WIDTH,GxEPD_HEIGHT,true);
     Serial.println("Send notify");
     pCharacteristic->notify();
   }
 };
 
+//Callbacks for OTA updates
 class OTACallbacks: public BLECharacteristicCallbacks{
   void onWrite(BLECharacteristic *pCharacteristic){
     std::string rData = pCharacteristic->getValue();
@@ -83,8 +128,19 @@ class OTACallbacks: public BLECharacteristicCallbacks{
   }
 };
 
+
+
+
 void setup(){
   Serial.begin(115200);
+  Serial.println("Start setup");
+  //Initializing the EPD display
+  SPI.begin(EPD_SCLK, EPD_MISO, EPD_MOSI);
+  display.init();
+  display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT,false);
+
+
+  //Starting BLE server
   BLEDevice::init("inkBuddy");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallBacks());
@@ -133,24 +189,15 @@ void setup(){
   pAdvertising->addServiceUUID(SERVICE_UUID_OTA);
   pAdvertising->addServiceUUID(SERVICE_UUID_DEVICE);
   pAdvertising->setScanResponse(false);
-  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
+  pAdvertising->setMinPreferred(0x0); 
   BLEDevice::startAdvertising();
 
-  // pCharacteristicHW->setValue("v0.1");
-  // pCharacteristicFW->setValue("v0.0.1");
   pCharacteristicHW->setValue(HWVersion);
   pCharacteristicFW->setValue(FWVersion);
-  Serial.println("Waiting a client connection to notify...");
+  Serial.println("Finished startup");
 }
 
 void loop() {
-    // notify changed value
-    if (deviceConnected) {
-        pCharacteristic->setValue((uint8_t*)&value, 4);
-        pCharacteristic->notify();
-        value++;
-        delay(3); // bluetooth stack will go into congestion, if too many packets are sent, in 6 hours test i was able to go as low as 3ms
-    }
     // disconnecting
     if (!deviceConnected && oldDeviceConnected) {
         delay(500); // give the bluetooth stack the chance to get things ready
