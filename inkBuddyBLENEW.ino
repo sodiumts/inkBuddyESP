@@ -39,7 +39,10 @@ bool oldDeviceConnected = false;
 bool updateFlag = false;
 esp_ota_handle_t otaHandler = 0;
 
-
+int xPosLast = 0;
+int yPosLast = 0;
+int cursorXLast = 0;
+int textSizeLast = 0;
 //UUIDs for services and characteristics
 
 //General service uuids
@@ -76,7 +79,7 @@ class SecondCharacteristicCallbacks: public BLECharacteristicCallbacks{
     int yPos = pData[1];
     int width = pData[2];
     int height = pData[3];
-    int textSize = 1;
+    int textSize = 2;
     // Serial.print(xPos); Serial.print(yPos); Serial.print("\n");
 
     uint8_t mainData[len-1] = {};
@@ -88,12 +91,25 @@ class SecondCharacteristicCallbacks: public BLECharacteristicCallbacks{
 
     // String str = (char*)mainData;
     Serial.println((char*)mainData);
-    // display.setRotation(0);
-    // display.setCursor(xPos,yPos);
-    // display.setTextSize(textSize);
-    // display.println((char *) mainData);
-    // // int cursorX = display.getCursorX();
-    // display.updateWindow(0,0,GxEPD_WIDTH,GxEPD_HEIGHT,true);
+    display.setRotation(1);
+    display.setCursor(xPos,yPos);
+    display.setTextSize(textSize);
+    display.setTextColor(GxEPD_BLACK);
+
+    if(textSizeLast!=0){
+      display.fillRect(xPosLast,yPosLast,cursorXLast,textSizeLast*10,GxEPD_WHITE);
+      display.updateWindow(xPosLast,yPosLast,cursorXLast,textSizeLast*10,true);
+    }
+
+    display.print((char*)mainData);
+    int cursorX = display.getCursorX();
+    Serial.println(cursorX);
+    display.updateWindow(xPos,yPos,cursorX,textSize*10,true);
+
+    xPosLast = xPos;
+    yPosLast = yPos;
+    cursorXLast = cursorX;
+    textSizeLast = textSize;
     Serial.println("Send notify");
     pCharacteristic->notify();
   }
@@ -135,8 +151,11 @@ void setup(){
   Serial.begin(115200);
   Serial.println("Start setup");
   //Initializing the EPD display
+  // display.fillRect(xPosLast,yPosLast,cursorXLast,textSizeLast*10,GxEPD_WHITE);
   SPI.begin(EPD_SCLK, EPD_MISO, EPD_MOSI);
   display.init();
+  display.fillScreen(GxEPD_WHITE);
+  display.update();
   display.updateWindow(0, 0, GxEPD_WIDTH, GxEPD_HEIGHT,false);
 
 
