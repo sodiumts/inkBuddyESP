@@ -34,6 +34,6 @@ class ArrayGen():
 
 gen = ArrayGen(CHARACTERISTIC_UUID)
 
-gen.listGen(0x0,0x0,0x0,0xFA,0x80,"amogs")
+gen.listGen(0x0,0x0,0x0,0xFA,0x80,"estere ir susib")
 gen.printGen()
 asyncio.run(gen.sender())
