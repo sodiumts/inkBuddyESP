@@ -4,7 +4,7 @@ from tqdm import tqdm
 CHARACTERISTIC_UUID = "b6a5eeef-8f30-46dd-8689-3b874c0fda71"
 
 starting = bytearray([0x0,0x0,0xFA,0x80])
-string = "I LOVE INK"
+string = "Ernests Malnacs"
 readnumPast = bytearray(string,"ascii")
 
 starting.extend(readnumPast)
